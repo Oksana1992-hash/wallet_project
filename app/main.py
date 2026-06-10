@@ -3,15 +3,14 @@ import uuid
 from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from .database import engine, Base, get_db
+from .database import get_db
 from .models import Wallet
 from .schemas import WalletOperation, WalletResponse, OperationType
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Убрали создание таблиц через SQLAlchemy, теперь за это отвечает Alembic
     yield
 
 
