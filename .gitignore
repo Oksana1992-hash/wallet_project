@@ -1,0 +1,12 @@
+# Окружение Python
+venv/
+.env
+
+# Кэш Python и тестов
+.pytest_cache/
+__pycache__/
+*.pys
+
+# Логи и Docker
+alembic.log
+.docker/
