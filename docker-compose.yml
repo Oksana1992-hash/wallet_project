@@ -10,6 +10,17 @@ services:
       db:
         condition: service_healthy
 
+  pytest:
+    build: .
+    # Запускаем pytest внутри контейнера
+    command: pytest -vv tests/
+    environment:
+      # Хост @db (так как контейнеры в одной сети)
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres_pass@db/wallet_db
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:15-alpine
     environment:
