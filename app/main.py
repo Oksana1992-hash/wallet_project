@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .database import get_db
 from .models import Wallet
 from .schemas import WalletOperation, WalletResponse, OperationType
+from fastapi.responses import HTMLResponse
 
 
 @asynccontextmanager
@@ -15,6 +16,33 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Wallet API", lifespan=lifespan)
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <html>
+        <head>
+            <title>Wallet API</title>
+            <style>
+                body { font-family: sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+                h1 { color: #2c3e50; margin-bottom: 10px; }
+                .status { display: inline-block; background: #2ecc71; color: white; padding: 5px 10px; border-radius: 20px; font-size: 14px; margin-bottom: 20px; }
+                a { display: block; background: #3498db; color: white; text-decoration: none; padding: 12px; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+                a:hover { background: #2980b9; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Wallet REST API</h1>
+                <div class="status">● Running</div>
+                <p>Асинхронное веб-приложение для управления балансом кошельков успешно запущено.</p>
+                <a href="/docs">Открыть Swagger UI Документацию</a>
+            </div>
+        </body>
+    </html>
+    """
 
 
 @app.get("/api/v1/wallets/{wallet_uuid}", response_model=WalletResponse)
