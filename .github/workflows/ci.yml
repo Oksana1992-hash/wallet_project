@@ -1,0 +1,24 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Скачиваем код репозитория на сервер GitHub
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Запускаем проверку стандартов PEP8 через flake8
+    - name: Run PEP8 lint check
+      run: docker-compose run --rm web flake8 app/ tests/
+
+    # 3. Поднимаем систему и запускаем тесты
+    - name: Run async tests in Docker
+      run: docker-compose up --build --exit-code-from pytest
