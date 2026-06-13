@@ -17,8 +17,8 @@ jobs:
 
     # 2. Запускаем проверку стандартов PEP8 через flake8
     - name: Run PEP8 lint check
-      run: docker-compose run --rm web flake8 app/ tests/
+      run: docker compose run --rm web flake8 app/ tests/
 
     # 3. Поднимаем систему и запускаем тесты
     - name: Run async tests in Docker
-      run: docker-compose up --build --exit-code-from pytest
+      run: docker compose up --build --exit-code-from pytest
