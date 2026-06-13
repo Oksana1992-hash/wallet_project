@@ -1,23 +1,14 @@
-from contextlib import asynccontextmanager
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from .database import get_db, engine # Импортируем engine из database
-from .models import Wallet, Base    # Импортируем Base из моделей
+from .database import get_db
+from .models import Wallet
 from .schemas import WalletOperation, WalletResponse, OperationType
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # При старте приложения автоматически создаем таблицы в базе, если их нет
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-
-
-app = FastAPI(title="Wallet REST API", lifespan=lifespan)
+app = FastAPI(title="Wallet REST API")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -51,7 +42,7 @@ async def root():
 
 @app.get("/api/v1/wallets/{wallet_uuid}", response_model=WalletResponse)
 async def get_wallet(
-        wallet_uuid: uuid.UUID, db: AsyncSession = Depends(get_db)
+    wallet_uuid: uuid.UUID, db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(Wallet).where(Wallet.id == wallet_uuid))
     wallet = result.scalar_one_or_none()
