@@ -4,15 +4,15 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-# Импортируем приложение, фабрику сессий, get_db, engine и саму модель
+# Импортируем приложение, фабрику сессий, get_db и саму модель кошелька
 from app.main import app
-from app.database import AsyncSessionLocal, get_db, engine
+from app.database import AsyncSessionLocal, get_db
 from app.models import Wallet
 
 
 @pytest.fixture(scope="function", autouse=True)
 async def setup_db_dependency():
-    """Фикстура изолирует сессии и очищает пул после каждого теста."""
+    """Фикстура изолирует сессии для каждого теста."""
 
     async def _override_get_db():
         async with AsyncSessionLocal() as session:
@@ -23,22 +23,24 @@ async def setup_db_dependency():
     yield
 
     app.dependency_overrides.clear()
-    await engine.dispose()
 
 
 @pytest.fixture(scope="function")
 async def setup_wallet():
-    """Фикстура создает в базе кошелек с балансом 1000.00 для тестов."""
+    """Фикстура очищает таблицу и создает кошелек для тестов."""
     wallet_id = uuid.uuid4()
     async with AsyncSessionLocal() as session:
-        # Очищаем таблицу от старых записей
+        # Очищаем таблицу
         await session.execute(
             text("TRUNCATE TABLE wallets RESTART IDENTITY CASCADE;")
         )
+        await session.commit()
 
+        # Создаем чистый кошелек
         wallet = Wallet(id=wallet_id, balance=1000.00)
         session.add(wallet)
         await session.commit()
+
     return wallet_id
 
 

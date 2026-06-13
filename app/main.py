@@ -1,17 +1,19 @@
 from contextlib import asynccontextmanager
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from .database import get_db
-from .models import Wallet
+from .database import get_db, engine # Импортируем engine из database
+from .models import Wallet, Base    # Импортируем Base из моделей
 from .schemas import WalletOperation, WalletResponse, OperationType
-from fastapi.responses import HTMLResponse
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Убрали создание таблиц через SQLAlchemy, теперь за это отвечает Alembic
+    # При старте приложения автоматически создаем таблицы в базе, если их нет
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
 
 

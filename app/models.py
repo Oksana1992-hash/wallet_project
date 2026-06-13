@@ -1,19 +1,12 @@
 import uuid
-from sqlalchemy import Column, Numeric
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Numeric
 from .database import Base
 
 
 class Wallet(Base):
     __tablename__ = "wallets"
 
-    id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-    balance = Column(
-        Numeric(precision=18, scale=2),
-        nullable=False,
-        default=0.00,
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0.00)
+

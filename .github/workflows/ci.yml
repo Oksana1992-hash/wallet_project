@@ -19,8 +19,6 @@ jobs:
     - name: Run PEP8 lint check
       run: docker compose run --rm web flake8 app/ tests/
 
-    # 3. Накатываем миграции и запускаем тесты в Docker
+    # 3. Запускаем тесты в Docker
     - name: Run async tests in Docker
-      run: |
-        docker compose run --rm web alembic upgrade head
-        docker compose up --build --exit-code-from pytest
+      run: docker compose run --rm pytest
