@@ -11,6 +11,17 @@ from app.database import AsyncSessionLocal, get_db, engine, Base
 from app.models import Wallet
 
 
+@pytest.fixture(scope="session")
+def event_loop():
+    """Создает один общий Event Loop для всех тестов в сессии.
+    Это предотвращает ошибку 'attached to a different loop' в asyncpg.
+    """
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()
+
+
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_db_dependency():
     """Фикстура автоматически создает таблицы перед каждым тестом,
@@ -22,15 +33,19 @@ async def setup_db_dependency():
 
     # 2. Подменяем зависимость сессии в FastAPI
     async def _override_get_db():
-        async with AsyncSessionLocal() as session:
+        session = AsyncSessionLocal()
+        try:
             yield session
+        finally:
+            await session.close()
 
     app.dependency_overrides[get_db] = _override_get_db
 
     yield
 
-    # 3. Чистим переопределения после окончания теста
+    # 3. Чистим переопределения и сбрасываем пул соединений
     app.dependency_overrides.clear()
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -49,7 +64,7 @@ async def setup_wallet():
     return wallet_id
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_get_wallet_not_found():
     """Тест 1: Проверка возврата ошибки 404
     при запросе несуществующего кошелька."""
@@ -62,7 +77,7 @@ async def test_get_wallet_not_found():
     assert response.json()["detail"] == "Wallet not found"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_operation_wallet_not_found():
     """Тест 2: Проверка ошибки 404 при попытке выполнить операцию
     над несуществующим кошельком."""
@@ -78,7 +93,7 @@ async def test_operation_wallet_not_found():
     assert response.json()["detail"] == "Wallet not found"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_get_wallet_success(setup_wallet):
     """Тест 3: Проверяем успешное получение баланса существующего кошелька."""
     wallet_uuid = setup_wallet
@@ -90,7 +105,7 @@ async def test_get_wallet_success(setup_wallet):
     assert float(response.json()["balance"]) == 1000.0
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_deposit_operation_success(setup_wallet):
     """Тест 4: Проверяем успешное пополнение кошелька (DEPOSIT)."""
     wallet_uuid = setup_wallet
@@ -105,7 +120,7 @@ async def test_deposit_operation_success(setup_wallet):
     assert float(response.json()["balance"]) == 1500.0
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_withdraw_operation_success(setup_wallet):
     """Тест 5: Проверяем успешное списание средств (WITHDRAW)."""
     wallet_uuid = setup_wallet
@@ -120,7 +135,7 @@ async def test_withdraw_operation_success(setup_wallet):
     assert float(response.json()["balance"]) == 700.00
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_withdraw_insufficient_funds(setup_wallet):
     """Тест 6: Проверяем ошибку 400, если денег на кошельке не хватает."""
     wallet_uuid = setup_wallet
@@ -135,32 +150,29 @@ async def test_withdraw_insufficient_funds(setup_wallet):
     assert response.json()["detail"] == "Insufficient funds"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_concurrent_withdrawals(setup_wallet):
     """Тест 7: Обработка 10 параллельных запросов на списание средств."""
     wallet_uuid = setup_wallet
 
-    # Независимый клиент для изоляции параллельных потоков в Docker
-    async def make_single_request():
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as ac_isolated:
-            return await ac_isolated.post(
-                f"/api/v1/wallets/{wallet_uuid}/operation",
-                json={"operation_type": "WITHDRAW", "amount": 100}
-            )
-
-    # 10 человек одновременно списывают по 100 рублей
-    tasks = [make_single_request() for _ in range(10)]
-    responses = await asyncio.gather(*tasks)
-
-    # Проверяем, что все 10 запросов выстроились и прошли успешно
-    for r in responses:
-        assert r.status_code == 200
-
-    # Проверяем финальный баланс: 1000 - (10 * 100) должно быть ровно 0
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
+        # 10 человек одновременно списывают по 100 рублей через один клиент
+        tasks = [
+            ac.post(
+                f"/api/v1/wallets/{wallet_uuid}/operation",
+                json={"operation_type": "WITHDRAW", "amount": 100}
+            )
+            for _ in range(10)
+        ]
+        responses = await asyncio.gather(*tasks)
+
+        # Проверяем, что все 10 запросов выстроились на уровне БД
+        # и прошли успешно
+        for r in responses:
+            assert r.status_code == 200
+
+        # Проверяем финальный баланс: 1000 - (10 * 100) должно быть ровно 0
         final_res = await ac.get(f"/api/v1/wallets/{wallet_uuid}")
-    assert float(final_res.json()["balance"]) == 0.0
+        assert float(final_res.json()["balance"]) == 0.0
