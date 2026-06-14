@@ -7,27 +7,20 @@ from sqlalchemy import text
 
 # Импортируем приложение, фабрику сессий, get_db, engine и саму модель
 from app.main import app
-from app.database import AsyncSessionLocal, get_db, engine
+from app.database import AsyncSessionLocal, get_db, engine, Base
 from app.models import Wallet
-
-
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def init_test_database():
-    """Автоматически создает таблицы в базе данных перед запуском тестов."""
-    # Импортируем Base локально, чтобы избежать циклических импортов
-    from app.database import Base
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_db_dependency():
-    """Фикстура изолирует сессии и очищает пул после каждого теста."""
+    """Фикстура автоматически создает таблицы перед каждым тестом,
+    подменяет зависимость БД и изолирует сессии.
+    """
+    # 1. Создаем таблицы (если их еще нет) перед запуском теста
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
+    # 2. Подменяем зависимость сессии в FastAPI
     async def _override_get_db():
         async with AsyncSessionLocal() as session:
             yield session
@@ -36,6 +29,7 @@ async def setup_db_dependency():
 
     yield
 
+    # 3. Чистим переопределения после окончания теста
     app.dependency_overrides.clear()
 
 
