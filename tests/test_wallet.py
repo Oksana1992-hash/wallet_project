@@ -11,6 +11,19 @@ from app.database import AsyncSessionLocal, get_db
 from app.models import Wallet
 
 
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def init_test_database():
+    """Автоматически создает таблицы в базе данных перед запуском тестов."""
+    # Импортируем Base локально, чтобы избежать циклических импортов
+    from app.database import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_db_dependency():
     """Фикстура изолирует сессии и очищает пул после каждого теста."""
