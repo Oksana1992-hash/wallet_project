@@ -5,9 +5,9 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-# Импортируем приложение, фабрику сессий, get_db и саму модель
+# Импортируем приложение, фабрику сессий, get_db, engine и саму модель
 from app.main import app
-from app.database import AsyncSessionLocal, get_db
+from app.database import AsyncSessionLocal, get_db, engine
 from app.models import Wallet
 
 
