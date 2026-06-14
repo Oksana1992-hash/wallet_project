@@ -1,21 +1,8 @@
-version: '3.8'
-
 services:
   web:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres_pass@db/wallet_db
-    depends_on:
-      # Бэкенд запустится только после того, как тесты pytest полностью завершатся успехом
-      pytest:
-        condition: service_completed_successfully
-
-  pytest:
-    build: .
-    # Тесты запускаются первыми, накатывают alembic, прогоняют pytest и отдают чистую БД приложению
-    command: sh -c "alembic upgrade head && pytest -vv tests/"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres_pass@db/wallet_db
     depends_on:

@@ -15,10 +15,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 2. Запускаем проверку стандартов PEP8 через flake8
+    # 2. Запускаем всю инфраструктуру (БД и Web) в фоновом режиме
+    - name: Start Infrastructure
+      run: docker compose up -d
+
+    # 3. Запускаем проверку стандартов PEP8 через flake8 внутри контейнера
     - name: Run PEP8 lint check
       run: docker compose run --rm web flake8 app/ tests/
 
-    # 3. Запускаем тесты в Docker
+    # 4. Применяем миграции базы данных перед тестами
+    - name: Run Database Migrations
+      run: docker compose run --rm web alembic upgrade head
+
+    # 5. Запускаем асинхронные тесты
     - name: Run async tests in Docker
-      run: docker compose run --rm pytest
+      run: docker compose run --rm web pytest
